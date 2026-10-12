@@ -1,2 +1,2 @@
-# hello-world-week2
-Week2 data types homework
+# hello-world-assignment
+listed by week
