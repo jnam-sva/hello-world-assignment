@@ -1138,7 +1138,7 @@ class Creature {
 
   }
 
-  // 감은 눈: 도안 1칸(3px)보다 얇은 1px 선으로, 아래로 살짝 휜 ‿ 모양
+  // 감은 눈: 도안 1칸(3px)보다 얇은 1px 가로 직선
   drawSleepyEyes(y) {
     let row = 14.5;          // 서 있는 그림: 14번 줄 한가운데
     let eyes = [16, 21];     // 왼쪽 눈 16~17번 칸, 오른쪽 눈 21~22번 칸
@@ -1150,9 +1150,8 @@ class Creature {
     stroke(PALETTE.v);
     strokeWeight(1);
     for (const col of eyes) {
-      // 눈 하나 = 선 두 개: 왼쪽 끝 → 가운데(조금 아래) → 오른쪽 끝
-      line(this.screenX(col), y + (row - 0.2) * PX, this.screenX(col + 1), y + (row + 0.2) * PX);
-      line(this.screenX(col + 1), y + (row + 0.2) * PX, this.screenX(col + 2), y + (row - 0.2) * PX);
+      // 눈 하나 = 가로 직선 하나: 눈 칸 2개의 왼쪽 끝 → 오른쪽 끝
+      line(this.screenX(col), y + row * PX, this.screenX(col + 2), y + row * PX);
     }
     noStroke();
   }

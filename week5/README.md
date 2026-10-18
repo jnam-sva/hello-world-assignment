@@ -72,3 +72,4 @@ A black cat with plants growing on its head and tail, and shiny eyes.
 44. "Make the background color move slowly." — the sky is now a banded gradient (darker top, lighter bottom) whose band edges ripple slowly with `sin(frameCount * SKY_WAVE_SPEED ...)`, on top of the day/night color.
 45. "The walking tail is still too stiff." (chose: held low and back, relaxed) — the sprite area only allowed an upright tail, so the walking tail is now drawn in code as a chain of 12 segments (`walkTailCells()`, `drawWalkTail()`): it extends back almost horizontally beyond the sprite and only the tip curls up, with a traveling wave while walking.
 46. "Apply it." — found that VS Code had saved an old copy of sketch.js over ~15 changes; restored the latest version from Claude Code's file history and re-applied the low walking tail.
+47. "Make the closed eyes a straight line." — `drawSleepyEyes()` now draws one flat 1px line per eye instead of a curved ‿.
