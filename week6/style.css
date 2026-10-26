@@ -1,0 +1,16 @@
+body {
+  margin: 0;
+  padding: 24px;
+  background: #111;
+  color: #eee;
+  font-family: system-ui, sans-serif;
+  text-align: center;
+}
+h1 { margin-bottom: 8px; }
+p { color: #aaa; }
+canvas {
+  display: block;
+  max-width: 100%;
+  height: auto !important;
+  margin: 24px auto;
+}
