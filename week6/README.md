@@ -127,4 +127,3 @@ Key prompts, translated from Korean:
 - “Explain it to me while making it; do not just make it.”
 - “Combine the explained Steps 3–8 into actual code so we can see the movement and colors.”
 - “Make the circles react more dramatically to movement when the webcam is on.”
-- “Write the README so readers can easily understand the process, and remove the step label from the artwork.”
