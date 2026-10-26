@@ -6,10 +6,14 @@ class DiscoPixel {
     this.baseSize = size;
     this.size = size;
     this.phase = x * 0.01 + y * 0.01;
+    this.previousColor = null;
+    this.motion = 0;
   }
 
   update(cameraReady) {
     let cameraSize = this.baseSize;
+    // Let each burst fade after movement stops (frame-rate independent decay).
+    this.motion *= Math.pow(0.92, Math.min(deltaTime, 100) / 16.67);
     if (cameraReady) {
       // Mirror the sample horizontally, like looking in a mirror.
       let videoX = capture.width - 1 - floor((this.x / width) * capture.width);
@@ -21,19 +25,35 @@ class DiscoPixel {
       // Camera pixels remain RGBA even when drawing in HSB mode.
       let brightness = (r + g + b) / 3;
       cameraSize = map(brightness, 0, 255, 20, 60);
+
+      // Compare this sample with its previous RGB values, not just brightness.
+      // Ignore small changes below 12 to reduce camera noise.
+      if (this.previousColor !== null) {
+        let difference = (Math.abs(r - this.previousColor[0]) +
+          Math.abs(g - this.previousColor[1]) +
+          Math.abs(b - this.previousColor[2])) / 3;
+        let impulse = constrain((difference - 12) / 55, 0, 1);
+        this.motion = Math.max(this.motion, impulse);
+      }
+      this.previousColor = [r, g, b];
+    } else {
+      // Start a fresh comparison when the camera becomes available again.
+      this.previousColor = null;
+      this.motion = 0;
     }
 
     // Different phases create a wave across the grid.
     let wave = sin(frameCount * 0.03 + this.phase) * 5;
-    let targetSize = cameraSize + wave;
-    // Move 10% of the remaining distance to avoid sudden jumps.
-    this.size = lerp(this.size, targetSize, 0.1);
+    // Moving areas expand beyond their grid cells for a stronger visual impact.
+    let targetSize = cameraSize + wave + this.motion * 65;
+    // React quickly to motion, then settle gently when the burst fades.
+    this.size = lerp(this.size, targetSize, this.motion > 0.1 ? 0.4 : 0.1);
   }
 
   display() {
-    let hue = (frameCount * 0.5 + this.phase * 40) % 360;
+    let hue = (frameCount * 0.5 + this.phase * 40 + this.motion * 100) % 360;
     let outerColor = color(hue, 85, 90);
-    let innerColor = color((hue + 90) % 360, 75, 100);
+    let innerColor = color((hue + 90) % 360, 75 - this.motion * 45, 100);
 
     // Smaller circles cover the centers of larger circles.
     // This local diameter changes without overwriting this.size.
@@ -110,7 +130,7 @@ async function toggleCamera() {
     capture.elt.srcObject = cameraStream;
     await capture.elt.play();
     button.textContent = "Stop webcam";
-    status.textContent = "Webcam mode — brighter areas make larger circles. Video stays in this browser.";
+    status.textContent = "Webcam mode — wave your hand! Moving areas burst larger and shift color. Video stays in this browser.";
   } catch (error) {
     stopCamera();
     status.textContent = "Camera unavailable or permission denied. Demo continues; allow camera access and try again.";

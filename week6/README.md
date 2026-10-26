@@ -78,3 +78,16 @@ Camera permission is requested on a button click using `getUserMedia`, then its 
 - Grid, finite animation sizes, and dark/bright sample behavior checked with a simulated p5 environment.
 - Live webcam permission and appearance still need review in the student's browser; automated checks do not verify real camera hardware.
 - The 5 × 7 grid is intentionally coarse to keep the object and loop structure easy to understand.
+
+
+## Motion response refinement
+
+Request (translated): “Make the circles react more dramatically to movement when the webcam is on.”
+
+- Each `DiscoPixel` now remembers its previous RGB sample in `previousColor`.
+- The average absolute RGB difference estimates local movement; a threshold of 12 filters small camera fluctuations. This also responds to lighting changes, so it is not body tracking.
+- A normalized `motion` value rises immediately and decays gradually. The first frame establishes a baseline instead of triggering a burst.
+- Motion adds up to 65 pixels to the diameter and increases interpolation from 0.1 to 0.4 for a fast response. Large circles intentionally overlap neighboring cells.
+- Motion also shifts hue and reduces the center's saturation, creating a brighter-looking color accent.
+- Demo mode keeps its original behavior. Camera sampling remains coarse (one sample per circle).
+- Syntax and synthetic stationary/change/decay/reset cases were checked; real-camera feel still needs review in the browser.
