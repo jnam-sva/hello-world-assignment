@@ -24,6 +24,19 @@ A black cat with plants growing on its head and tail, and shiny eyes.
 - [x] Environment — `World` class: meadow (reference-style grass on a pale sage base), day/night shown by sky color only (about 2 minutes per day, press T to skip ahead)
 - [ ] Lesson 5 — Serial communication with Arduino
 
+## Moss widget (for a portfolio)
+
+`moss-widget/` is a standalone copy of Moss and the meadow grass with a transparent background (no sky, no day/night, no Fern).
+
+- Copy the `moss-widget/` folder into your site, then embed it with one line:
+
+  ```html
+  <iframe src="moss-widget/index.html" title="Moss, a pixel cat"
+          style="width:100%; height:160px; border:0; background:transparent;"></iframe>
+  ```
+- `demo.html` shows an example page.
+- `moss.js` sections 1–3 are copied from `sketch.js`; only section 5 is widget-specific (`Meadow extends World`, `WidgetCat extends Creature`). Changes to `sketch.js` are not applied automatically.
+
 ## Prompts used
 
 1. "Explain everything step by step from the beginning, so I can understand every line. My goal is to make a virtual creature. Run the project as if you're teaching a student who is learning the concept of a class for the first time. Appearance: a black cat with plant on its head and tail. Its eyes are shiny."
@@ -73,3 +86,4 @@ A black cat with plants growing on its head and tail, and shiny eyes.
 45. "The walking tail is still too stiff." (chose: held low and back, relaxed) — the sprite area only allowed an upright tail, so the walking tail is now drawn in code as a chain of 12 segments (`walkTailCells()`, `drawWalkTail()`): it extends back almost horizontally beyond the sprite and only the tip curls up, with a traveling wave while walking.
 46. "Apply it." — found that VS Code had saved an old copy of sketch.js over ~15 changes; restored the latest version from Claude Code's file history and re-applied the low walking tail.
 47. "Make the closed eyes a straight line." — `drawSleepyEyes()` now draws one flat 1px line per eye instead of a curved ‿.
+48. "Can I take just Moss and the grass for my portfolio?" (chose: interactive widget, hand-written HTML site) — created `moss-widget/` with a transparent iframe page; reused the classes and only overrode what differs via `extends`.
