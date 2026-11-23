@@ -57,7 +57,6 @@ A plant that shows its mood through light and sound as the soil dries or gets we
 ### Handoff
 
 - **Run:** upload `plant_mood_led/plant_emotion.ino` with the Arduino IDE (needs the FastLED library). Quit the IDE, then open `plant_mood_sound_and_visual/index.html` in Chrome and press "Connect Arduino + turn on sound". Without the hardware, press keys `0`–`3` (a simulation).
-- **Known limit:** `plant_mood_sound_and_visual/plant-gradient.js` is still empty, so the screen background is a solid colour for now.
 - **Credits:** p5.js, FastLED, Qwen2.5-1.5B-Instruct, LM Studio. This plan was organised with Claude.
 - **AI use:** I built the Arduino code and the p5 sound and screen code with Claude Code. The four states, the signal language, and the feel of each state's colour and sound are my decisions.
   - **Volume slider:** added at my request after feedback from a classmate.
@@ -117,7 +116,6 @@ A plant that shows its mood through light and sound as the soil dries or gets we
 ### 인계
 
 - **실행:** Arduino IDE로 `plant_mood_led/plant_emotion.ino`를 업로드합니다(FastLED 라이브러리 필요). IDE를 종료한 뒤 Chrome에서 `plant_mood_sound_and_visual/index.html`을 열고 "Connect Arduino + turn on sound"를 누릅니다. 장치 없이 볼 때는 키보드 `0`–`3`을 누릅니다(시뮬레이션).
-- **알려진 한계:** `plant_mood_sound_and_visual/plant-gradient.js`가 아직 비어 있어서, 지금은 화면 배경이 단색입니다.
 - **크레딧:** p5.js, FastLED, Qwen2.5-1.5B-Instruct, LM Studio. 이 계획서는 Claude와 함께 정리했습니다.
 - **AI 사용:** Claude Code로 Arduino 코드와 p5 소리·화면 코드를 만들었습니다. 상태 4개, 신호 언어, 각 상태의 색과 소리 느낌은 제가 정했습니다.
   - **볼륨 슬라이더:** 동료의 피드백을 듣고 추가를 요청했습니다.
