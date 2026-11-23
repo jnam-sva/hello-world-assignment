@@ -11,9 +11,9 @@
 // States  0 = Dry   1 = Good   2 = Just watered   3 = Soggy (Too Much)   4 = Reading (sensor is reading)
 //
 // Sounds (all made with Web Audio, no sound files)
-//   Dry            two sounds, 10 s each  'early' soft rustle when it first gets dry,
-//                  'late' urgent crackling + sigh after it has stayed dry for 1 minute
-//   Good           silent (calm = no action needed)
+//   Dry            two sounds, 10 s each  'early' when it first gets dry, 'late' (louder, more urgent) after 1 minute
+//                  pick the voice in PE_DRY_VOICES  soft falling "uh-oh", an almost-drop, a soft heartbeat, or dry leaves
+//   Good           clear soft notes at first (like before), then quiet (calm = no action needed)
 //   Just watered   bright notes climbing up, played ONCE when the state begins
 //   Reading        silent, the background keeps the previous state
 //   Too Much       dark and muffled, as if under water  low glug, heavy drops, slow pressure swell
@@ -30,17 +30,23 @@ let beatCount = 0;    // number of beats received (for checking)
 let lastLine = '(none yet)';  // last line received from the Arduino (for checking)
 let dryStart = 0;     // time the Dry state started
 let quietUntil = 0;   // no sound until this time (while the state is changing)
-let __pe = { reading: false, volumeNode: null, volumeSlider: null };   // new in this version
+// ★ Dry sound  pick one by its number (press D while testing to cycle through them)
+const PE_DRY_VOICES = ['twoNote', 'almostDrop', 'heartbeat', 'rustle'];
+//                        0 "uh-oh"   1 almost-drop  2 soft heart  3 original dry leaves
+let __pe = { reading: false, volumeNode: null, volumeSlider: null, goodStart: 0, goodTick: 0,
+             dryVoice: 1 };   // new in this version  ★ dryVoice = which Dry sound (0~3)
 
 // The beat values must match the BEAT_ values in the Arduino code.
 const TONE = 'A4';      // ★ base pitch for the Good notes (e.g. C4, E4, G4)
 const DRY_ESCALATE_MS = 120000;  // Dry gets more urgent over 2 minutes (same as Arduino)
 const PE_BEAT_DRY_START = 3000;  // Dry beat starts slow...
 const PE_BEAT_DRY_END = 1000;    // ...and gets faster (same as Arduino)
-const PE_START_VOLUME = 60;      // ★ starting volume (0~100)
+const PE_START_VOLUME = 80;      // ★ starting volume (0~100)  80 ≈ the original loudness
+const PE_GOOD_SING_MS = 3000;    // ★ how long Good plays its clear notes before going quiet (3 s)
+const PE_DRY_SOUND_MS = 10000;   // ★ each Dry sound (early and late) plays for this long (10 s)
+const PE_DRY_LATE_AT_MS = 60000; // ★ how long it must stay dry before the urgent 'late' sound starts (1 minute)
+const PE_GOOD_TICK_MS = 750;     // Good's note rhythm (same as the original 750 ms beat)
 const TRANSITION_MS = 2500;      // ★ silence while the state changes (about as long as the gradient takes to glide)
-const DRY_LATE_AT_MS = 60000;    // ★ how long it must stay dry before the urgent 'late' sound (1 minute)
-const DRY_SOUND_MS = 10000;      // ★ each Dry sound plays for this long, then the plant goes quiet (10 seconds)
 
 const MOODS = [
   { name: 'Thirsty…',    beat: 3000, color: [120, 75, 40] },   // dry leaves rustle, long silences
@@ -233,8 +239,40 @@ function makeSounds(ctx, out, baseFreq) {
   const SCALE = [0, 2, 4, 7, 9, 12, 14, 16];
   const pitch = (step, octave = 0) => baseFreq * Math.pow(2, (SCALE[step] + 12 * octave) / 12);
 
+  // a thin, soft drop whose pitch sags (used by the almostDrop Dry voice)
+  function thinDrop(t, gain, pitchScale) {
+    const o = ctx.createOscillator();
+    o.type = 'sine';
+    const f0 = rnd(820, 900) * pitchScale;
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(f0 * 0.7, t + 0.18);
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass'; f.frequency.value = 1800;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(gain, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+    o.connect(f); f.connect(g); g.connect(master);
+    o.start(t); o.stop(t + 0.3);
+  }
+
+  // a weak falling sigh  a soft tone that slides down and fades (used by late Dry)
+  function sigh(t, gain) {
+    const o = ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(baseFreq * 1.5, t);
+    o.frequency.exponentialRampToValueAtTime(baseFreq * 0.75, t + 1.2);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(gain, t + 0.15);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.3);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + 1.4);
+  }
+
   // ---------- one function per state ----------
   let goodQuietUntil = 0;
+  let dryQuietUntil = 0;
   let wateredStep = 0;
 
   return {
@@ -248,47 +286,58 @@ function makeSounds(ctx, out, baseFreq) {
       g.linearRampToValueAtTime(1, back + 0.05);
     },
 
-    // Dry has two stages
-    //   'early'  a soft, sparse rustle of dry leaves
-    //   'late'   dense crackling, snapping leaves and a weak falling sigh (urgent)
+    // let the next Dry call play right away (used when switching voices)
+    resetDry() { dryQuietUntil = 0; },
+
+    // Dry  two stages
+    //   'early'  soft and sparse, the plant is just starting to get thirsty
+    //   'late'   louder, more often and more broken, the plant is in trouble
     dry(t, stage = 'early') {
       const late = stage === 'late';
-      if (!late && R() < 0.2) return;                  // early sometimes skips a beat
+      const voice = PE_DRY_VOICES[__pe.dryVoice];
 
-      // rustle of dry leaves
-      rustle(t + rnd(0, 0.3), {
-        grains: Math.floor(late ? rnd(54, 66) : rnd(18, 30)),
-        spread: late ? rnd(0.65, 0.85) : rnd(0.25, 0.45),
-        freq: late ? 2500 : 3400, q: 2.2, gain: late ? 1.5 : 0.6,
-        minDur: 0.005, maxDur: late ? 0.048 : 0.025 });
-
-      if (!late) return;
-
-      // sharp snaps of brittle leaves
-      const cracks = Math.floor(rnd(3, 5));
-      for (let i = 0; i < cracks; i++) {
-        grain(t + rnd(0.05, 0.8), rnd(0.008, 0.02), rnd(1200, 2200), 6, 1.15);
+      if (voice === 'rustle') {
+        // dry leaves  early = soft rustle, late = dense crackling + snapping leaves + a weak falling sigh
+        if (!late && R() < 0.2) return;
+        rustle(t + rnd(0, 0.3), {
+          grains: Math.floor(late ? rnd(54, 66) : rnd(18, 30)),
+          spread: late ? rnd(0.65, 0.85) : rnd(0.25, 0.45),
+          freq: late ? 2500 : 3400, q: 2.2, gain: late ? 1.5 : 0.6,
+          minDur: 0.005, maxDur: late ? 0.048 : 0.025 });
+        if (late) {
+          const cracks = Math.floor(rnd(3, 5));
+          for (let i = 0; i < cracks; i++) grain(t + rnd(0.05, 0.8), rnd(0.008, 0.02), rnd(1200, 2200), 6, 1.15);
+          if (R() < 0.85) sigh(t + rnd(0.3, 0.6), 0.21);
+        }
+        return;
       }
 
-      // a weak falling sigh  the plant is running out of strength
-      if (R() < 0.85) {
-        const st = t + rnd(0.3, 0.6);
-        const o = ctx.createOscillator();
-        o.type = 'sine';
-        o.frequency.setValueAtTime(baseFreq * 1.5, st);
-        o.frequency.exponentialRampToValueAtTime(baseFreq * 0.75, st + 1.2);
-        const g = ctx.createGain();
-        g.gain.setValueAtTime(0.0001, st);
-        g.gain.linearRampToValueAtTime(0.21, st + 0.15);
-        g.gain.exponentialRampToValueAtTime(0.0001, st + 1.3);
-        o.connect(g); g.connect(master);
-        o.start(st); o.stop(st + 1.4);
+      // the softer voices leave a gap between calls  shorter gaps when late (more urgent)
+      if (t < dryQuietUntil) return;
+      dryQuietUntil = t + (late ? rnd(1.6, 2.2) : rnd(3, 4));
+      const v = late ? 1.8 : 1;   // late is louder
+
+      if (voice === 'twoNote') {
+        // "uh-oh"  two soft bell notes stepping down (falling = negative)
+        note(t, pitch(4, 1), 1.0, 0.11 * v);
+        note(t + 0.32, pitch(2, 1), 1.4, 0.11 * v);
+        if (late) note(t + 0.7, pitch(0, 1), 1.6, 0.09 * v);   // late  falls one step further
+      } else if (voice === 'almostDrop') {
+        // a small drop that tries to fall but fades away  "almost water"
+        thinDrop(t, 0.32 * v, 1.0);
+        thinDrop(t + 0.45, 0.2 * v, 0.85);
+        if (late) thinDrop(t + 0.9, 0.12 * v, 0.7);            // late  a third, weaker try
+      } else if (voice === 'heartbeat') {
+        // a soft, muffled thump-thump  late beats harder
+        blob(t, 75, 50, 0.18, 0.35 * v);
+        blob(t + 0.26, 68, 45, 0.22, 0.25 * v);
       }
+      if (late && R() < 0.5) sigh(t + 1.0, 0.12);              // late  now and then a weak falling sigh
     },
 
     // Good  a short phrase of two or three clear soft notes, light leaves now and then
-    good(t) {
-      if (t >= goodQuietUntil && R() < 0.35) {
+    good(t, force = false) {
+      if (t >= goodQuietUntil && (force || R() < 0.35)) {
         const count = R() < 0.5 ? 2 : 3;
         let step = Math.floor(rnd(0, 4));
         let tt = t;
@@ -344,11 +393,11 @@ function startAudio() {
   audioOn = true;
 }
 
-// Slider 0~100 → volume (squared so the low end feels natural)
+// Slider 0~100 → volume (squared so the low end feels natural, 80 ≈ the original loudness)
 function peApplyVolume() {
   if (!__pe.volumeNode || !__pe.volumeSlider) return;
   let v = __pe.volumeSlider.value() / 100;
-  __pe.volumeNode.gain.setTargetAtTime(v * v, actx.currentTime, 0.05);
+  __pe.volumeNode.gain.setTargetAtTime(1.5 * v * v, actx.currentTime, 0.05);
 }
 
 // ---------- Serial port (using Chrome's built-in Web Serial directly) ----------
@@ -469,20 +518,21 @@ function playBeat() {
   let t = actx.currentTime + 0.02;
   if (state === 0) {
     let stage = peDryStage();
-    if (stage) { snd.dry(t, stage); notesPlayed++; }   // null = quiet between the two sounds
+    if (!stage) return;                  // between the two sounds Dry stays quiet (the LEDs keep showing it)
+    snd.dry(t, stage); notesPlayed++;
   }
   else if (state === 3) { snd.soggy(t); notesPlayed++; }
-  // Good (1) is silent, Just watered (2) plays its chime once in changeState
+  // Good (1) sings on its own rhythm in draw(), Just watered (2) plays its chime once in changeState
 }
 
 // Which Dry sound to play right now
-//   first 10 s of Dry → 'early'
-//   10 s starting at DRY_LATE_AT_MS → 'late'
-//   any other time → null (quiet)
+//   first 10 s of Dry              → 'early'
+//   10 s starting at 1 minute      → 'late'
+//   any other time                 → null (quiet)
 function peDryStage() {
   let elapsed = millis() - dryStart;
-  if (elapsed < DRY_SOUND_MS) return 'early';
-  if (elapsed >= DRY_LATE_AT_MS && elapsed < DRY_LATE_AT_MS + DRY_SOUND_MS) return 'late';
+  if (elapsed < PE_DRY_SOUND_MS) return 'early';
+  if (elapsed >= PE_DRY_LATE_AT_MS && elapsed < PE_DRY_LATE_AT_MS + PE_DRY_SOUND_MS) return 'late';
   return null;
 }
 
@@ -496,6 +546,25 @@ function peSetReading(on) {
   if (on === __pe.reading) return;
   __pe.reading = on;
   if (on && snd) snd.hush(actx.currentTime, actx.currentTime + 0.5);   // fade out what is ringing
+  if (!on && state === 1) __pe.goodStart = millis();   // e.g. after startup, Good begins singing again
+  if (!on && state === 0) {                            // ★ after reading, Dry starts its sounds again
+    dryStart = millis();
+    if (snd) snd.resetDry();
+  }
+}
+
+// Good  clear soft notes for the first few seconds, then quiet
+function peGoodSing() {
+  if (state !== 1 || __pe.reading || !audioOn || !snd) return;
+  let now = millis();
+  if (now < quietUntil) return;                          // still changing state
+  if (now - __pe.goodStart > PE_GOOD_SING_MS) return;    // sang long enough, now calm and quiet
+  if (now - __pe.goodTick < PE_GOOD_TICK_MS) return;
+  let first = __pe.goodTick < __pe.goodStart;          // first note of this Good period
+  __pe.goodTick = now;
+  if (actx.state !== 'running') actx.resume();
+  snd.good(actx.currentTime + 0.02, first);             // the first one always sings
+  notesPlayed++;
 }
 
 function changeState(s) {
@@ -515,7 +584,11 @@ function changeState(s) {
     quietUntil = millis() + TRANSITION_MS;
     if (snd) snd.hush(actx.currentTime, actx.currentTime + TRANSITION_MS / 1000);
   }
-  if (s === 0) dryStart = millis();      // same clock as the Arduino
+  if (s === 0) {
+    dryStart = millis();                 // same clock as the Arduino
+    if (snd) snd.resetDry();             // the first beat after the transition plays right away
+  }
+  if (s === 1) __pe.goodStart = quietUntil;   // Good sings once the transition silence ends
 
   if (window.PlantGradient) PlantGradient.setState(state);   // the gradient glides to the new state
 }
@@ -546,6 +619,14 @@ function readSerial() {
 function keyPressed() {
   if (key >= '0' && key <= '3') { if (!audioOn) startAudio(); peSetReading(false); changeState(int(key)); }
   if (key === '4') { if (!audioOn) startAudio(); peSetReading(true); }
+  if (key === 'd' || key === 'D') {   // cycle the Dry sound and play it once to compare
+    if (!audioOn) startAudio();
+    __pe.dryVoice = (__pe.dryVoice + 1) % PE_DRY_VOICES.length;
+    if (snd) {   // play early, then late, so both can be compared
+      snd.resetDry(); snd.dry(actx.currentTime + 0.05, 'early');
+      snd.resetDry(); snd.dry(actx.currentTime + 2.5, 'late');
+    }
+  }
   if (key === ' ') {
     if (!audioOn) startAudio();
     lastBeat = millis(); beatCount++; playBeat();
@@ -554,6 +635,7 @@ function keyPressed() {
 
 function draw() {
   readSerial();
+  peGoodSing();
 
   let m = MOODS[state];
   clear();   // transparent, so the gradient shows through
@@ -578,21 +660,29 @@ function draw() {
   drawingContext.shadowBlur = 16;
 
   noStroke();
-  fill(245);
+  // the moisture reading sits under the volume slider, in the same style as the "Volume" label
+  drawingContext.shadowBlur = 0;
+  push();
+  textFont('sans-serif');
+  textSize(13);
+  fill(238);                          // same as the label color #eee
+  textAlign(LEFT, TOP);
+  text('Soil moisture   ' + (__pe.reading ? '…' : moisture + '%'), 20, 88);
+  pop();
+  drawingContext.shadowBlur = 16;
+
+  // status words (READING… / CHANGING…) in the middle of the screen
   textAlign(CENTER, CENTER);
-  // only the moisture reading in the middle (the gradient and sound show the state)
-  textSize(64);
-  text(__pe.reading ? '…' : moisture + '%', width / 2, y);
-  textSize(12);
-  fill(235);
-  text('SOIL MOISTURE', width / 2, y + 48);
-  if (__pe.reading) text('READING…', width / 2, y - 52);             // the sensor is reading
-  else if (millis() < quietUntil) text('CHANGING…', width / 2, y - 52);   // while the state is changing
+  textSize(14);
+  fill(245);
+  if (__pe.reading) text('READING…', width / 2, height / 2);                    // the sensor is reading
+  else if (millis() < quietUntil) text('CHANGING…', width / 2, height / 2);     // while the state is changing
 
   // Status display (for checking)
   textSize(14);
   fill(225);
   let audioText = !actx ? 'Sound off (press the button)' : 'Audio ' + actx.state + ' · beats played ' + notesPlayed;
+  audioText += ' · Dry sound ' + PE_DRY_VOICES[__pe.dryVoice] + ' (D to change)';
   text(serialStatus + '   ·   ' + audioText + '   ·   beats received ' + beatCount, width / 2, height - 50);
   text('characters received ' + bytesIn + '   ·   last line received  ' + lastLine, width / 2, height - 25);
   drawingContext.shadowBlur = 0;
