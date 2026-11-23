@@ -1,4 +1,4 @@
-# Week 10 — Plant Mood: A Word from the Plant · 식물의 한마디
+# Week 10 — Plant Mood
 
 **Week 10 homework: final-project proposal and spike plan · 10주차 과제: 기말 프로젝트 제안서와 스파이크 계획 · November 23, 2026**
 
@@ -14,10 +14,10 @@
 
 ### Idea
 
-A plant that shows its mood through light and sound as the soil dries or gets wet (the code in this folder, as of commit `2be4c1e`). I want to add **a short line from the plant** on screen, for example "I'm a little thirsty."
+A plant that shows its mood through light and sound as the soil dries or gets wet (the code in this folder). I want to add **a short line from the plant** on screen, for example "I'm a little thirsty."
 
 - **For:** people who forget to water their plants, or water them too often
-- **Core experience:** soil dries → amber pulse and a sigh + "I'm thirsty" → I water it → green rises with a chime + "Thank you"
+- **Core experience:** soil dries → amber pulse and a soft, almost-falling drop sound + "I'm thirsty" → I water it → green rises with a chime + "Thank you"
 
 ### Scope
 
@@ -56,7 +56,7 @@ A plant that shows its mood through light and sound as the soil dries or gets we
 
 ### Handoff
 
-- **Run:** upload `plant_mood_led/plant_emotion.ino` with the Arduino IDE (needs the FastLED library). Quit the IDE, then open `plant_mood_sound_and_visual/index.html` in Chrome and press "Connect Arduino + turn on sound". Without the hardware, press keys `0`–`3` (a simulation).
+- **Run:** upload `plant_mood_led/plant_emotion.ino` with the Arduino IDE (needs the FastLED library). Quit the IDE, then open `plant_mood_sound_and_visual/index.html` in Chrome and press "Connect Arduino + turn on sound". Without the hardware, use the keyboard (a simulation): `0`–`3` change the state, `4` shows reading, space plays a beat, `D` switches the Dry sound.
 - **Credits:** p5.js, FastLED, Qwen2.5-1.5B-Instruct, LM Studio. This plan was organised with Claude.
 - **AI use:** I built the Arduino code and the p5 sound and screen code with Claude Code. The four states, the signal language, and the feel of each state's colour and sound are my decisions.
   - **Volume slider:** added at my request after feedback from a classmate.
@@ -73,10 +73,10 @@ A plant that shows its mood through light and sound as the soil dries or gets we
 
 ### 아이디어
 
-흙의 수분에 따라 빛과 소리로 기분을 표현하는 식물입니다(이 폴더의 코드, 커밋 `2be4c1e` 기준). 여기에 **식물의 한마디**를 화면에 더하려고 합니다. 예: "목이 조금 말라요."
+흙의 수분에 따라 빛과 소리로 기분을 표현하는 식물입니다(이 폴더의 코드). 여기에 **식물의 한마디**를 화면에 더하려고 합니다. 예: "목이 조금 말라요."
 
 - **대상:** 물 주는 걸 잊거나 너무 자주 주는 사람
-- **핵심 경험:** 흙이 마름 → 호박색 맥박과 한숨 + "목이 말라요" → 물을 줌 → 초록이 차오르고 차임 + "고마워요"
+- **핵심 경험:** 흙이 마름 → 호박색 맥박과 떨어지다 마는 물방울 소리 + "목이 말라요" → 물을 줌 → 초록이 차오르고 차임 + "고마워요"
 
 ### 범위
 
@@ -115,7 +115,7 @@ A plant that shows its mood through light and sound as the soil dries or gets we
 
 ### 인계
 
-- **실행:** Arduino IDE로 `plant_mood_led/plant_emotion.ino`를 업로드합니다(FastLED 라이브러리 필요). IDE를 종료한 뒤 Chrome에서 `plant_mood_sound_and_visual/index.html`을 열고 "Connect Arduino + turn on sound"를 누릅니다. 장치 없이 볼 때는 키보드 `0`–`3`을 누릅니다(시뮬레이션).
+- **실행:** Arduino IDE로 `plant_mood_led/plant_emotion.ino`를 업로드합니다(FastLED 라이브러리 필요). IDE를 종료한 뒤 Chrome에서 `plant_mood_sound_and_visual/index.html`을 열고 "Connect Arduino + turn on sound"를 누릅니다. 장치 없이 볼 때는 키보드를 씁니다(시뮬레이션): `0`–`3` 상태 변경, `4` 측정 중, 스페이스 박자, `D` Dry 소리 바꾸기.
 - **크레딧:** p5.js, FastLED, Qwen2.5-1.5B-Instruct, LM Studio. 이 계획서는 Claude와 함께 정리했습니다.
 - **AI 사용:** Claude Code로 Arduino 코드와 p5 소리·화면 코드를 만들었습니다. 상태 4개, 신호 언어, 각 상태의 색과 소리 느낌은 제가 정했습니다.
   - **볼륨 슬라이더:** 동료의 피드백을 듣고 추가를 요청했습니다.
